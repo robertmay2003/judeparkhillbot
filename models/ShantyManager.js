@@ -1,7 +1,21 @@
 const config = require('../config.json');
 const schedule = require('node-schedule');
+const path = require('path');
 
 class ShantyManager {
+    guild;
+
+    shantyVoiceChannel;
+    shantyChannel;
+    shantyJob;
+
+    _messageInterval;
+    _audioTimeout;
+    _disconnectTimeout;
+    _connection;
+
+    _audioLoopFlag;
+
     constructor(guild) {
         this.guild = guild;
         this.shantyVoiceChannel = undefined;
@@ -9,8 +23,11 @@ class ShantyManager {
         this.shantyJob = undefined;
 
         this._messageInterval = undefined;
+        this._audioTimeout = undefined;
         this._disconnectTimeout = undefined;
         this._connection = undefined;
+
+        this._audioLoopFlag = false;
     }
 
     // Schedule sea shanties
@@ -31,19 +48,23 @@ class ShantyManager {
         this.shantyJob = undefined;
 
         if (this._messageInterval) clearInterval(this._messageInterval);
-        if (this._disconnectTimeout) clearInterval(this._disconnectTimeout);
+        if (this._audioTimeout) clearTimeout(this._audioTimeout);
+        if (this._disconnectTimeout) clearTimeout(this._disconnectTimeout);
 
         this._messageInterval = undefined;
+        this._audioLoopFlag = false;
         this._disconnectTimeout = undefined;
         this._connection = undefined;
     }
 
     // Join channel and perform actions
     async _performSeaShanties() {
+        if (!this.shantyVoiceChannel) return;
         console.log(`Starting shanty on channel ${this.shantyVoiceChannel.name} in server ${this.shantyVoiceChannel.guild}`);
 
         // Join voice channel
         this._connection = await this.shantyVoiceChannel.join();
+        if (!this._connection) return;
 
         // Set interval for sending messages
         this._messageInterval = setInterval(() => {
@@ -52,7 +73,46 @@ class ShantyManager {
             this.shantyChannel.send(config.shanty.messages[Math.floor(Math.random() * config.shanty.messages.length)]);
         }, config.shanty.messageInterval * 60 * 1000);
 
-        // Set interval for leaving voice channel
+        // Set audio loop flag for speaking in channel
+        this._audioLoopFlag = true;
+        const playVoice = () => {
+            if (
+                !this._connection
+                || this.shantyVoiceChannel === undefined
+                || !this._audioLoopFlag
+            ) return;
+
+            const audioFile = path.resolve(
+                `../resources/audio/JudeVoice_${Math.ceil(
+                    Math.random() * 25)
+                    .toLocaleString(undefined, { minimumIntegerDigits: 2 })
+                }.wav`
+            );
+
+            console.log(`Playing audio ${audioFile}`)
+
+            const dispatcher = this._connection.play(audioFile, { volume: 1 });
+            console.log(dispatcher.paused);
+
+            dispatcher.on('end', (end) => {
+                const timeout = (
+                    config.shanty.voiceInterval
+                    + Math.random() * config.shanty.voiceIntervalVariation
+                    - 0.5 * config.shanty.voiceIntervalVariation
+                );
+
+                console.log(`Finished playing, resting for ${timeout} minutes`)
+                if (this._audioLoopFlag) {
+                    this._audioTimeout = setTimeout(
+                        playVoice,
+                        timeout * 60 * 1000
+                    );
+                }
+            });
+        }
+        playVoice();
+
+        // Set timeout for leaving voice channel
         this._disconnectTimeout = setTimeout(() => {
             this._disconnectTimeout = undefined;
             this.endShantyJob();

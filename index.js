@@ -23,7 +23,7 @@ const bot = new Discord.Client({
 // Upload image from url to GCS and Firestore
 async function upload(image, message) {
     // Create document & upload
-    const name = `${moment(Date.now()).format('MM-DD-YY:hh.mm.ss')}-${image.filename}`;
+    const name = `${moment(Date.now()).format('MM-DD-YY:hh.mm.ss')}-${image.name}`;
     const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${name}?alt=media`;
     const timeStamp = admin.firestore.Timestamp.fromDate(new Date(message.createdTimestamp));
     const customMetadata = {
@@ -39,7 +39,7 @@ async function upload(image, message) {
 
     // Create storage file
     console.log(`Creating file ${name}...`)
-    const splitName = image.filename.split('.');
+    const splitName = image.name.split('.');
     const file = bucket.file(name);
     const metadata = {
         contentType: `image/${splitName[splitName.length - 1]}`,
@@ -88,7 +88,7 @@ function getImagesFromMessage(message) {
 
     message.embeds.forEach((embed) => {
         if (embed.type === 'image' && checkURL(embed.url)) images.push(Object.assign(
-            { filename: embed.url.split('/').slice(-1)[0] },
+            { name: embed.url.split('/').slice(-1)[0] },
             embed,
         ));
     })
@@ -142,7 +142,7 @@ bot.on('message', (message) => {
                         let shantyManager = settings.shantyManagers[message.guild.id];
                         if (shantyManager.shantyJob === undefined) {
                             // Start shanty
-                            shantyManager.startShantyJob(message.channel, message.member.voiceChannel);
+                            shantyManager.startShantyJob(message.channel, message.member.voice.channel);
                         } else {
                             // End shanty
                             shantyManager.endShantyJob();
@@ -156,7 +156,7 @@ bot.on('message', (message) => {
             case 'upload': // Upload all images in channel retroactively
                 message.channel.send('All images in the last 100 messages sent to this channel will now be uploaded to dmarchel.com');
 
-                message.channel.fetchMessages({ limit: 100 }).then(async (messageCollection) => {
+                message.channel.messages.fetch({ limit: 100 }).then(async (messageCollection) => {
                     const messages = messageCollection.map(m => m);
                     for (const m of messages) {
                         const images = getImagesFromMessage(m);

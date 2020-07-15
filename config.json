@@ -1,10 +1,12 @@
 {
   "shanty": {
     "messageInterval": 10,
+    "voiceInterval": 0.5,
+    "voiceIntervalVariation": 0.4,
     "sessionDuration": 60,
     "time": {
-      "hour": 4,
-      "minute": 52
+      "hour": 2,
+      "minute": 18
     },
     "songs": [
       "sea shanties",
